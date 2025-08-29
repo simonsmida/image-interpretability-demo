@@ -21,7 +21,7 @@ from model import SmallCNN
 
 # -------------------- configuration --------------------
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_PATH = "models/mnist_model.pth"
+MODEL_PATH = "models/mnist_cnn.pth"
 
 
 _model = None
@@ -90,10 +90,22 @@ def predict_tensor(x: torch.Tensor) -> Tuple[int, np.ndarray]:
 
 # -------------------- visualization helpers --------------------
 
-def show_overlay(img_arr: np.ndarray, saliency: np.ndarray, cmap: str = "seismic") -> Image.Image: # try also "hot", ...
+# def show_overlay(img_arr: np.ndarray, saliency: np.ndarray, cmap: str = "seismic") -> Image.Image: # try also "hot", ...
+#     fig, ax = plt.subplots(figsize=(4, 4))
+#     ax.imshow(img_arr, cmap="gray", vmin=0, vmax=1)
+#     ax.imshow(saliency, cmap=cmap, alpha=0.6)#, interpolation="bilinear")
+#     ax.axis("off")
+#     plt.tight_layout(pad=0)
+#     buf = io.BytesIO()
+#     fig.savefig(buf, format="png", bbox_inches="tight", pad_inches=0, dpi=150)
+#     plt.close(fig)
+#     buf.seek(0)
+#     return Image.open(buf).convert("RGB")
+
+def show_overlay(img_arr: np.ndarray, saliency: np.ndarray, cmap: str = "seismic", interpolation: str = "bilinear") -> Image.Image:
     fig, ax = plt.subplots(figsize=(4, 4))
     ax.imshow(img_arr, cmap="gray", vmin=0, vmax=1)
-    ax.imshow(saliency, cmap=cmap, alpha=0.6, interpolation="bilinear")
+    ax.imshow(saliency, cmap=cmap, alpha=0.6, interpolation=interpolation)
     ax.axis("off")
     plt.tight_layout(pad=0)
     buf = io.BytesIO()
@@ -103,11 +115,16 @@ def show_overlay(img_arr: np.ndarray, saliency: np.ndarray, cmap: str = "seismic
     return Image.open(buf).convert("RGB")
 
 
+
 def plot_probabilities(probs: np.ndarray, pred: int) -> Image.Image:
     fig, ax = plt.subplots(figsize=(6, 2.5))
     digits = list(range(len(probs)))
-    bars = ax.bar(digits, probs, alpha=0.8, edgecolor="black", linewidth=0.6)
+    colors = ["#ff4444" if i == pred else "#4444ff" for i in digits]
+    bars = ax.bar(digits, probs, color=colors, alpha=0.8, edgecolor="black", linewidth=0.6)
+    bars[pred].set_color("#ff4444")
+    bars[pred].set_alpha(1.0)
     ax.set_xticks(digits)
+    ax.set_ylim(0, 1.1)
     ax.set_yticks([0, 0.5, 1.0])
     ax.set_title("Class Probabilities")
     ax.set_xlabel("Class")
@@ -131,19 +148,31 @@ def null_saliency(input_tensor: torch.Tensor, target: Optional[int] = None) -> n
     """Return a flat zero saliency. Replace with actual methods."""
     return np.zeros((28, 28), dtype=np.float32)
 
+def vanilla_gradient(input_tensor, target=None):
+    model = load_model(MODEL_PATH)
+    x = input_tensor.clone().to(DEVICE).requires_grad_(True)
+    logits = model(x)
+    if target is None:
+        target = int(F.softmax(logits, dim=1).argmax())
+    score = logits[0, target]
+    score.backward()
+    grad = x.grad[0, 0].abs().cpu().numpy()
+    grad = grad - grad.min()
+    if grad.max() > 0:
+        grad = grad / grad.max()
+    return grad
+
 # TODO: implement vanilla_gradient, smoothgrad, integrated_gradients, grad_cam, etc.
 
 METHODS = {
     "Null (placeholder)": null_saliency,
     # add method names -> functions here
+    "Vanilla Gradient": vanilla_gradient,
 }
 
 # -------------------- core app handler --------------------
 
-def run_app(canvas_data, 
-            smooth_noise: float,  blur_sigma: float,
-            sample_digit: str, method_name: str, target_class: str,
-            loo_patch: int, smooth_n: int, ig_steps: int, blur_steps: int):
+def run_app(canvas_data, sample_digit: str, method_name: str, target_class: str, smooth_overlay: bool):
     # input selection
     if canvas_data is not None:
         t = preprocess_canvas(canvas_data)
@@ -154,16 +183,19 @@ def run_app(canvas_data,
         t = torch.zeros(1, 1, 28, 28)
 
     pred, probs = predict_tensor(t)
-    pred_str = f"Predicted: {pred} (conf {probs[pred]:.3f})"
-
+    pred_str = f"Model Prediction: {pred} (conf {probs[pred]:.3f})"
+    print("Prediction:", pred_str)
     # method selection and call method
     fn = METHODS.get(method_name, null_saliency)
-
+    print("Using method:", method_name)
     # skeleton methods currently ignore extra params; adapt per-method
-    sal = fn(t, target=None)
+    sal = fn(t, target=None if target_class == "auto" else target_class)
 
     img_arr = t[0, 0].cpu().numpy()
-    overlay = show_overlay(img_arr, sal)
+
+    interp = "bilinear" if smooth_overlay else "nearest"
+    overlay = show_overlay(img_arr, sal, interpolation=interp)
+    #overlay = show_overlay(img_arr, sal)
     prob_plot = plot_probabilities(probs, pred)
     return overlay, gr.update(label=pred_str), prob_plot
 
@@ -191,14 +223,15 @@ def build_ui():
                             # show_download_button=False,
                             # show_fullscreen_button=False,
                         )
-                        gr.Markdown("<br><br>")
-                        gr.Markdown("Draw a digit (0-9) or use a test sample, select an interpretability method, and see the saliency overlay.")
                         gr.Markdown("<br>")
-                        gr.Markdown("This project is following [this article](https://thegradient.pub/a-visual-history-of-interpretation-for-image-recognition/) and can be found on [my GitHub](www.simonsmida.github.io/).")
+                        gr.Markdown("Draw a digit (0-9) or use a test sample, select an interpretability method, and see the saliency overlay.")
                     with gr.Column():
                         gr.Markdown("<br>")
                         sample_digit = gr.Dropdown(choices=["random"] + [str(i) for i in range(10)], value="random", label="Sample")
                         sample_btn = gr.Button("New sample")
+                with gr.Row():
+                    gr.Markdown("This project is following [this article](https://thegradient.pub/a-visual-history-of-interpretation-for-image-recognition/) and can be found on [my GitHub](https://simonsmida.github.io/).")
+
             with gr.Column():
                 with gr.Row():
                     with gr.Column():
@@ -206,13 +239,16 @@ def build_ui():
                         method = gr.Dropdown(list(METHODS.keys()), value="Null (placeholder)", label="Method Selection")
                         target = gr.Dropdown(["auto"] + [str(i) for i in range(10)], value="auto", label="Target Class")
                         run_btn = gr.Button("Run", variant="primary")
-                        pred_group = gr.Markdown("Model Prediction: —")
+                        #pred_group = gr.Markdown("Model Prediction: —")
+                        with gr.Accordion(label="Predicted: —", open=False) as pred_group:
+                            prob_plot = gr.Image(type="pil", show_label=False, height=150)
                     with gr.Column():
                         gr.Markdown("### Output")
-                        out_img = gr.Image(type="pil", label="Overlay")
-                        prob_plot = gr.Image(type="pil", show_label=False)#label="Class Probs")
+                        out_img = gr.Image(type="pil", label="Overlay", height=300)
+                        interpolation_toggle = gr.Checkbox(label="Smooth saliency overlay (bilinear)", value=True)
 
-        inputs_all = [canvas, sample_digit, method, target]
+        print(f"Method: ", method)
+        inputs_all = [canvas, sample_digit, method, target, interpolation_toggle]
         run_btn.click(run_app, inputs=inputs_all, outputs=[out_img, pred_group, prob_plot])
         sample_btn.click(run_app, inputs=inputs_all, outputs=[out_img, pred_group, prob_plot])
 
