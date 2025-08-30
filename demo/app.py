@@ -149,11 +149,13 @@ def build_ui():
         interpolation_toggle.change(run_app, inputs=inputs_all, outputs=outputs_all)
         
         # Button actions
-        load_sample_btn.click(load_random_sample, inputs=[], outputs=[canvas], show_progress=False)
+        load_sample_btn.click(load_random_sample, inputs=[], outputs=[canvas], show_progress=False).then(
+            run_app, inputs=inputs_all, outputs=outputs_all, show_progress=False
+        )
         clear_btn.click(clear_canvas, inputs=[], outputs=[canvas])
         
         # Auto-update after loading a sample
-        load_sample_btn.click(run_app, inputs=inputs_all, outputs=outputs_all, show_progress=False)
+        #load_sample_btn.click(run_app, inputs=inputs_all, outputs=outputs_all, show_progress=False)
 
     return demo
 
