@@ -6,6 +6,8 @@ Run with: python app.py
 import io
 import os
 import math
+import time
+
 from typing import Optional, Tuple
 
 import numpy as np
@@ -20,6 +22,11 @@ import matplotlib.pyplot as plt
 from model import SmallCNN
 from utils import show_overlay, plot_probabilities, preprocess_canvas, predict_tensor, load_random_sample
 from methods import METHODS
+
+
+def load_sample_and_run():
+    new_image = load_random_sample()
+    return new_image
 
 
 # -------------------- core app handler --------------------
@@ -49,16 +56,6 @@ def run_app(canvas_data, method_name: str, target_class: str, smooth_overlay: bo
     overlay = show_overlay(img_arr, sal, interpolation=interp)
     prob_plot = plot_probabilities(probs, pred)
     return overlay, gr.update(label=pred_str), prob_plot
-
-def load_and_run(method_name: str, target_class: str, smooth_overlay: bool):
-    # Load random sample
-    new_canvas = load_random_sample()
-    
-    # Process the new sample
-    canvas_data = new_canvas
-    overlay, pred_update, prob_plot = run_app(canvas_data, method_name, target_class, smooth_overlay)
-    
-    return new_canvas, overlay, pred_update, prob_plot
 
 # -------------------- UI --------------------
 
@@ -143,22 +140,17 @@ def build_ui():
         run_btn.click(run_app, inputs=inputs_all, outputs=outputs_all)
         
         # Auto-update on parameter changes
-        canvas.change(run_app, inputs=inputs_all, outputs=outputs_all)
+        #canvas.change(run_app, inputs=inputs_all, outputs=outputs_all)
         method.change(run_app, inputs=inputs_all, outputs=outputs_all)
         target.change(run_app, inputs=inputs_all, outputs=outputs_all)
         interpolation_toggle.change(run_app, inputs=inputs_all, outputs=outputs_all)
-        
-        # Button actions
         load_sample_btn.click(load_random_sample, inputs=[], outputs=[canvas], show_progress=False).then(
             run_app, inputs=inputs_all, outputs=outputs_all, show_progress=False
         )
         clear_btn.click(clear_canvas, inputs=[], outputs=[canvas])
-        
-        # Auto-update after loading a sample
-        #load_sample_btn.click(run_app, inputs=inputs_all, outputs=outputs_all, show_progress=False)
-
+    
     return demo
 
 if __name__ == "__main__":
     demo = build_ui()
-    demo.launch(debug=True, share=False)
+    demo.launch()
