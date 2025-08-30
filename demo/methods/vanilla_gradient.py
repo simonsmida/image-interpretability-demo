@@ -5,9 +5,6 @@ import numpy as np
 
 from model import get_model 
 
-def null_saliency(input_tensor: torch.Tensor, target: Optional[int] = None) -> np.ndarray:
-    """Return a flat zero saliency. Replace with actual methods."""
-    return np.zeros((28, 28), dtype=np.float32)
 
 def vanilla_gradient(input_tensor, target=None):
     """Vanilla gradient implementation using cached model"""

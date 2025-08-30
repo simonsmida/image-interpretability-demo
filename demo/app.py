@@ -43,7 +43,7 @@ def run_app(canvas_data, method_name: str, target_class: str, smooth_overlay: bo
 
     sal = fn(t, target=target)
 
-    img_arr = t[0, 0].cpu().numpy()
+    img_arr = t[0, 0].cpu().detach().numpy()
 
     interp = "bilinear" if smooth_overlay else "nearest"
     overlay = show_overlay(img_arr, sal, interpolation=interp)
@@ -106,7 +106,7 @@ def build_ui():
             # Interpretability Method Column
             with gr.Column(scale=3):
                 gr.Markdown("### Interpretability Method")
-                method = gr.Dropdown(list(METHODS.keys()), value="Null (placeholder)", label="Method Selection")
+                method = gr.Dropdown(list(METHODS.keys()), value="Vanilla Gradient", label="Method Selection")
                 target = gr.Dropdown(["auto"] + [str(i) for i in range(10)], value="auto", label="Target Class")
                 run_btn = gr.Button("Run", variant="primary")
                 with gr.Accordion(label="Predicted: —", open=False) as pred_group:
