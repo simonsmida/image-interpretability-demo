@@ -39,7 +39,7 @@ def run_app(canvas_data, method_name: str, target_class: str, smooth_overlay: bo
     if target_class == "auto":
         target = None
     else:
-        target = int(target_class)  # Convert string to int
+        target = int(target_class)
 
     sal = fn(t, target=target)
 
@@ -90,7 +90,7 @@ def build_ui():
             # Input Column
             with gr.Column(scale=3):
                 gr.Markdown("### Input")
-                
+
                 # Create initial blank image
                 initial_image = Image.new('L', (280, 280), 255)
                 
@@ -148,16 +148,8 @@ def build_ui():
         target.change(run_app, inputs=inputs_all, outputs=outputs_all)
         interpolation_toggle.change(run_app, inputs=inputs_all, outputs=outputs_all)
         
-        # Auto-update when canvas changes (optional - might be too frequent)
-        # canvas.change(run_app, inputs=inputs_all, outputs=outputs_all)
-        
         # Button actions
         load_sample_btn.click(load_random_sample, inputs=[], outputs=[canvas], show_progress=False)
-        # load_sample_btn.click(
-        #     load_and_run, 
-        #     inputs=[method, target, interpolation_toggle], 
-        #     outputs=[canvas, out_img, pred_group, prob_plot]
-        # )
         clear_btn.click(clear_canvas, inputs=[], outputs=[canvas])
         
         # Auto-update after loading a sample
