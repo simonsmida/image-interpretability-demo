@@ -73,7 +73,7 @@ def build_ui():
         }
     """) as demo:
         gr.Markdown(f"## {title_str}")
-        gr.Markdown("Draw a digit or load a random MNIST sample, select an interpretability method, and view the saliency overlay. This project follows [this article](https://thegradient.pub/a-visual-history-of-interpretation-for-image-recognition/) and is on [my GitHub](https://simonsmida.github.io/).")
+        gr.Markdown("Draw a digit or load a random MNIST sample, select an interpretability method, and view the saliency overlay. This project follows [this article](https://thegradient.pub/a-visual-history-of-interpretation-for-image-recognition/) and is on [my GitHub](https://github.com/simonsmida/image-interpretability-demo).")
         gr.Markdown("<br>")
         
         with gr.Row():
